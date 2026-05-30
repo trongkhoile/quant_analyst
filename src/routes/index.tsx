@@ -229,7 +229,22 @@ function QiPrimeDashboard() {
 
   if (!score) return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text,
-      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>Loading...</div>
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 16, gap: 12 }}>
+      {error ? (
+        <>
+          <div style={{ color: C.sell, fontWeight: 700, fontSize: 18 }}>Error loading signal</div>
+          <div style={{ color: C.textMuted, fontSize: 14, textAlign: "center", maxWidth: 400 }}>{error}</div>
+          <button onClick={pullSignal} style={{ 
+            marginTop: 8, padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.border}`, 
+            background: C.surface, color: C.text, fontWeight: 600, cursor: "pointer", boxShadow: C.shadow 
+          }}>
+            Retry
+          </button>
+        </>
+      ) : (
+        "Loading..."
+      )}
+    </div>
   );
 
   const isSell   = score.direction === "SELL";
