@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { calculateAIScore } from "@/lib/scoring_engine.js";
 import { setLatestSignal, getLatestSignal, type Signal } from "@/lib/signal-store.server";
+import { updateSignalFromBinance } from "@/lib/binance-fetcher";
 
 export const Route = createFileRoute("/api/signal")({
   server: {
@@ -50,7 +51,19 @@ export const Route = createFileRoute("/api/signal")({
           );
         }
 
-        const latestSignal = getLatestSignal(symbol, timeframe);
+        let latestSignal = getLatestSignal(symbol, timeframe);
+        
+        // On Vercel (Serverless), in-memory store is ephemeral. 
+        // If no signal is found, fetch it on-demand.
+        if (!latestSignal) {
+          try {
+            await updateSignalFromBinance(symbol, timeframe);
+            latestSignal = getLatestSignal(symbol, timeframe);
+          } catch (err) {
+            console.error("On-demand fetch failed", err);
+          }
+        }
+
         if (!latestSignal) {
           return new Response(
             JSON.stringify({ error: `No signal data available for ${symbol} @ ${timeframe}` }),
