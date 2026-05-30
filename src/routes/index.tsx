@@ -351,20 +351,58 @@ function QiPrimeDashboard() {
 
            {/* AI SCORE Section - Adaptive Layout */}
            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
+             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                {/* Mobile-only Price (Left of Gauge) */}
+                <div className="flex md:hidden" style={{ flexDirection: "column", gap: 8 }}>
+                  <div style={{ 
+                    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, 
+                    padding: "10px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 90 
+                  }}>
+                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>
+                      {DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}
+                    </div>
+                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800 }}>
+                      {data.price?.current?.toLocaleString()}
+                    </div>
+                    <div style={{ 
+                      display: "inline-flex", alignItems: "center", gap: 4, 
+                      background: isSell ? C.sellBg : isBuy ? C.buyBg : C.surfaceMuted, 
+                      color: isSell ? C.sell : isBuy ? C.buy : C.neutral, 
+                      fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 999, 
+                      marginTop: 6, border: `1px solid ${isSell ? C.sell : isBuy ? C.buy : C.neutral}30` 
+                    }}>
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: isSell ? C.sell : isBuy ? C.buy : C.neutral }} />
+                      {score.direction}
+                    </div>
+                  </div>
+                </div>
+
                 <div style={{ background: sigBg, borderRadius: "50%", padding: 8 }}>
                   <CircularGauge score={score.ai_score} maxScore={90} color={sigColor} />
                 </div>
 
-                {/* Mobile-only Metrics (Right of Gauge) */}
+                {/* Mobile-only RSI (Right of Gauge) */}
                 <div className="flex md:hidden" style={{ flexDirection: "column", gap: 8 }}>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 80 }}>
-                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5 }}>RSI ({timeframe})</div>
-                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800, marginTop: 2 }}>{bd.rsi?.toFixed(1)}</div>
-                  </div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 80 }}>
-                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5 }}>{DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}</div>
-                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800, marginTop: 2 }}>{data.price?.current?.toLocaleString()}</div>
+                  <div style={{ 
+                    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, 
+                    padding: "10px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 90 
+                  }}>
+                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>
+                      RSI ({timeframe})
+                    </div>
+                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800 }}>
+                      {bd.rsi?.toFixed(1)}
+                    </div>
+                    <div style={{ 
+                      display: "inline-flex", alignItems: "center", gap: 4, 
+                      background: bd.rsi < 40 ? C.sellBg : bd.rsi > 60 ? C.buyBg : C.surfaceMuted, 
+                      color: bd.rsi < 40 ? C.sell : bd.rsi > 60 ? C.buy : C.neutral, 
+                      fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 999, 
+                      marginTop: 6, border: `1px solid ${bd.rsi < 40 ? C.sell : bd.rsi > 60 ? C.buy : C.neutral}30` 
+                    }}>
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: bd.rsi < 40 ? C.sell : bd.rsi > 60 ? C.buy : C.neutral }} />
+                      {bd.rsi < 40 ? "Bearish" : bd.rsi > 60 ? "Bullish" : "Neutral"}
+                    </div>
                   </div>
                 </div>
              </div>
