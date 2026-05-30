@@ -1,4 +1,3 @@
-import { handler as vercelHandler } from "nitro/dist/presets/vercel/runtime/vercel.web.mjs";
-import { requestHandler } from "../../../dist/server/index.mjs";
+import nodeHandler from "nitro/dist/presets/vercel/runtime/vercel.node.mjs";
 
-export const handler = vercelHandler(requestHandler);
+export default nodeHandler;
