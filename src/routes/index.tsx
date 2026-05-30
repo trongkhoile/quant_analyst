@@ -349,79 +349,50 @@ function QiPrimeDashboard() {
             </div>
           </div>
 
-           {/* AI SCORE Section - Adaptive Layout */}
-           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                {/* Mobile-only Price (Left of Gauge) */}
-                <div className="flex md:hidden" style={{ flexDirection: "column", gap: 8 }}>
-                  <div style={{ 
-                    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, 
-                    padding: "10px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 90 
-                  }}>
-                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>
-                      {DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}
-                    </div>
-                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800 }}>
-                      {data.price?.current?.toLocaleString()}
-                    </div>
-                    <div style={{ 
-                      display: "inline-flex", alignItems: "center", gap: 4, 
-                      background: isSell ? C.sellBg : isBuy ? C.buyBg : C.surfaceMuted, 
-                      color: isSell ? C.sell : isBuy ? C.buy : C.neutral, 
-                      fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 999, 
-                      marginTop: 6, border: `1px solid ${isSell ? C.sell : isBuy ? C.buy : C.neutral}30` 
-                    }}>
-                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: isSell ? C.sell : isBuy ? C.buy : C.neutral }} />
-                      {score.direction}
-                    </div>
-                  </div>
-                </div>
+            {/* AI SCORE Section - Responsive Layout */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+               {/* MOBILE LAYOUT: Gauge | (RSI over Price) */}
+               <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "center", gap: 24, width: "100%" }}>
+                 <div style={{ background: sigBg, borderRadius: "50%", padding: 8 }}>
+                   <CircularGauge score={score.ai_score} maxScore={90} color={sigColor} />
+                 </div>
 
+                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                   {/* Mobile RSI */}
+                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px", textAlign: "center", minWidth: 110, boxShadow: C.shadow }}>
+                     <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, marginBottom: 4 }}>RSI ({timeframe})</div>
+                     <div style={{ color: C.text, fontSize: 18, fontWeight: 800 }}>{bd.rsi?.toFixed(1)}</div>
+                   </div>
+
+                   {/* Mobile Price */}
+                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px", textAlign: "center", minWidth: 110, boxShadow: C.shadow }}>
+                     <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, marginBottom: 4 }}>{DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}</div>
+                     <div style={{ color: C.text, fontSize: 18, fontWeight: 800 }}>{data.price?.current?.toLocaleString()}</div>
+                   </div>
+                 </div>
+               </div>
+
+              {/* DESKTOP LAYOUT: Gauge + Last Update */}
+              <div className="hidden md:flex" style={{ flexDirection: "column", alignItems: "center", gap: 12 }}>
                 <div style={{ background: sigBg, borderRadius: "50%", padding: 8 }}>
                   <CircularGauge score={score.ai_score} maxScore={90} color={sigColor} />
                 </div>
-
-                {/* Mobile-only RSI (Right of Gauge) */}
-                <div className="flex md:hidden" style={{ flexDirection: "column", gap: 8 }}>
-                  <div style={{ 
-                    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, 
-                    padding: "10px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 90 
-                  }}>
-                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>
-                      RSI ({timeframe})
-                    </div>
-                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800 }}>
-                      {bd.rsi?.toFixed(1)}
-                    </div>
-                    <div style={{ 
-                      display: "inline-flex", alignItems: "center", gap: 4, 
-                      background: bd.rsi < 40 ? C.sellBg : bd.rsi > 60 ? C.buyBg : C.surfaceMuted, 
-                      color: bd.rsi < 40 ? C.sell : bd.rsi > 60 ? C.buy : C.neutral, 
-                      fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 999, 
-                      marginTop: 6, border: `1px solid ${bd.rsi < 40 ? C.sell : bd.rsi > 60 ? C.buy : C.neutral}30` 
-                    }}>
-                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: bd.rsi < 40 ? C.sell : bd.rsi > 60 ? C.buy : C.neutral }} />
-                      {bd.rsi < 40 ? "Bearish" : bd.rsi > 60 ? "Bullish" : "Neutral"}
-                    </div>
+                <div style={{
+                  background: C.surfaceMuted, border: `1px solid ${C.borderSoft}`,
+                  borderRadius: 10, padding: "8px 14px", textAlign: "center", minWidth: 180,
+                }}>
+                  <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, letterSpacing: 1.5 }}>
+                    LAST UPDATE
+                  </div>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                    {lastUpdateStr}
+                  </div>
+                  <div style={{ color: C.textMuted, fontSize: 11, fontWeight: 500, marginTop: 1 }}>
+                    {lastAge}s ago
                   </div>
                 </div>
-             </div>
-
-             <div style={{
-               background: C.surfaceMuted, border: `1px solid ${C.borderSoft}`,
-               borderRadius: 10, padding: "8px 14px", textAlign: "center", minWidth: 180,
-             }}>
-               <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, letterSpacing: 1.5 }}>
-                 LAST UPDATE
-               </div>
-               <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                 {lastUpdateStr}
-               </div>
-               <div style={{ color: C.textMuted, fontSize: 11, fontWeight: 500, marginTop: 1 }}>
-                 {lastAge}s ago
-               </div>
-             </div>
-           </div>
+              </div>
+            </div>
         </div>
 
         {/* ── 3-COLUMN LAYOUT ── */}
@@ -464,13 +435,13 @@ function QiPrimeDashboard() {
                  </span>
                </div>
              </Section>
-             <div className="hidden md:flex" style={{ flexDirection: "column", gap: 12, marginTop: 12 }}>
-               <MetricCard title={`RSI (${timeframe})`} value={bd.rsi?.toFixed(1)}
-                 label={bd.rsi < 40 ? "Bearish momentum" : bd.rsi > 60 ? "Bullish momentum" : "Neutral"}
-                 tone={bd.rsi < 40 ? "sell" : bd.rsi > 60 ? "buy" : "neutral"} />
-               <MetricCard title={DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol} value={data.price?.current?.toLocaleString()}
-                 label={score.direction} tone={isSell ? "sell" : isBuy ? "buy" : "neutral"} />
-             </div>
+               <div className="hidden md:flex" style={{ flexDirection: "column", gap: 12, marginTop: 12 }}>
+                 <MetricCard title={`RSI (${timeframe})`} value={bd.rsi?.toFixed(1)}
+                   label={bd.rsi < 40 ? "Bearish momentum" : bd.rsi > 60 ? "Bullish momentum" : "Neutral"}
+                   tone={bd.rsi < 40 ? "sell" : bd.rsi > 60 ? "buy" : "neutral"} />
+                 <MetricCard title={DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol} value={data.price?.current?.toLocaleString()}
+                   label={score.direction} tone={isSell ? "sell" : isBuy ? "buy" : "neutral"} />
+               </div>
           </div>
 
           {/* Column 2 — Stochastic Triggers */}
