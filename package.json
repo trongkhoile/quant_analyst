@@ -84,5 +84,6 @@
     "nitropack": "^2.13.4"
   },
   "devDependencies": {
-  }
+  },
+  "vercel-rebuild": "2026-05-30-v1"
 }
