@@ -1,4 +1,5 @@
 {
   "buildCommand": "npm run build:vercel",
-  "framework": null
+  "framework": null,
+  "alias": ["signal-nexus.vercel.app"]
 }
