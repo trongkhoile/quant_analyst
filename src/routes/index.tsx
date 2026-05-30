@@ -3,6 +3,13 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { calculateAIScore } from "@/lib/scoring_engine.js";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      {
+        title: "Signals App",
+      },
+    ],
+  }),
   component: QiPrimeDashboard,
 });
 
@@ -342,26 +349,41 @@ function QiPrimeDashboard() {
             </div>
           </div>
 
-          {/* AI SCORE + Last Update stacked */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <div style={{ background: sigBg, borderRadius: "50%", padding: 8 }}>
-              <CircularGauge score={score.ai_score} maxScore={90} color={sigColor} />
-            </div>
-            <div style={{
-              background: C.surfaceMuted, border: `1px solid ${C.borderSoft}`,
-              borderRadius: 10, padding: "8px 14px", textAlign: "center", minWidth: 180,
-            }}>
-              <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, letterSpacing: 1.5 }}>
-                LAST UPDATE
-              </div>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                {lastUpdateStr}
-              </div>
-              <div style={{ color: C.textMuted, fontSize: 11, fontWeight: 500, marginTop: 1 }}>
-                {lastAge}s ago
-              </div>
-            </div>
-          </div>
+           {/* AI SCORE Section - Adaptive Layout */}
+           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
+                <div style={{ background: sigBg, borderRadius: "50%", padding: 8 }}>
+                  <CircularGauge score={score.ai_score} maxScore={90} color={sigColor} />
+                </div>
+
+                {/* Mobile-only Metrics (Right of Gauge) */}
+                <div className="flex md:hidden" style={{ flexDirection: "column", gap: 8 }}>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 80 }}>
+                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5 }}>RSI ({timeframe})</div>
+                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800, marginTop: 2 }}>{bd.rsi?.toFixed(1)}</div>
+                  </div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", boxShadow: C.shadow, textAlign: "center", minWidth: 80 }}>
+                    <div style={{ color: C.textFaint, fontSize: 8, fontWeight: 700, letterSpacing: 0.5 }}>{DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}</div>
+                    <div style={{ color: C.text, fontSize: 16, fontWeight: 800, marginTop: 2 }}>{data.price?.current?.toLocaleString()}</div>
+                  </div>
+                </div>
+             </div>
+
+             <div style={{
+               background: C.surfaceMuted, border: `1px solid ${C.borderSoft}`,
+               borderRadius: 10, padding: "8px 14px", textAlign: "center", minWidth: 180,
+             }}>
+               <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, letterSpacing: 1.5 }}>
+                 LAST UPDATE
+               </div>
+               <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                 {lastUpdateStr}
+               </div>
+               <div style={{ color: C.textMuted, fontSize: 11, fontWeight: 500, marginTop: 1 }}>
+                 {lastAge}s ago
+               </div>
+             </div>
+           </div>
         </div>
 
         {/* ── 3-COLUMN LAYOUT ── */}
@@ -373,42 +395,44 @@ function QiPrimeDashboard() {
 
           {/* Column 1 — Trend & Momentum */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Section title={`LAYER 1 — TREND GATE (${timeframe} EMA)`}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                {[
-                  { label: "EMA 21", val: data.layer_1_trend?.ema_fast_value },
-                  { label: "EMA 50", val: data.layer_1_trend?.ema_mid_value },
-                  { label: "EMA 200", val: data.layer_1_trend?.ema_slow_value },
-                ].map(({ label, val }) => {
-                  const belowEMA = data.price?.current < val;
-                  return (
-                    <div key={label} style={{ textAlign: "center", background: C.surfaceMuted,
-                                              borderRadius: 8, padding: "10px 4px",
-                                              border: `1px solid ${C.borderSoft}` }}>
-                      <div style={{ color: C.textMuted, fontSize: 10, fontWeight: 600 }}>{label}</div>
-                      <div style={{ color: C.text, fontWeight: 700, fontSize: 14, marginTop: 2 }}>
-                        {val?.toLocaleString()}
-                      </div>
-                      <div style={{ color: belowEMA ? C.sell : C.buy, fontSize: 10, marginTop: 2, fontWeight: 600 }}>
-                        {belowEMA ? "BELOW ↓" : "ABOVE ↑"}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ marginTop: 12, textAlign: "center" }}>
-                <span style={{ background: sigBg, color: sigColor,
-                              padding: "5px 14px", borderRadius: 999, fontSize: 11, fontWeight: 700,
-                              border: `1px solid ${sigColor}33` }}>
-                  GATE: {data.layer_1_trend?.trend_direction} · {data.layer_1_trend?.allowed_side} ONLY
-                </span>
-              </div>
-            </Section>
-            <MetricCard title={`RSI (${timeframe})`} value={bd.rsi?.toFixed(1)}
-              label={bd.rsi < 40 ? "Bearish momentum" : bd.rsi > 60 ? "Bullish momentum" : "Neutral"}
-              tone={bd.rsi < 40 ? "sell" : bd.rsi > 60 ? "buy" : "neutral"} />
-            <MetricCard title={DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol} value={data.price?.current?.toLocaleString()}
-              label={score.direction} tone={isSell ? "sell" : isBuy ? "buy" : "neutral"} />
+             <Section title={`LAYER 1 — TREND GATE (${timeframe} EMA)`}>
+               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                 {[
+                   { label: "EMA 21", val: data.layer_1_trend?.ema_fast_value },
+                   { label: "EMA 50", val: data.layer_1_trend?.ema_mid_value },
+                   { label: "EMA 200", val: data.layer_1_trend?.ema_slow_value },
+                 ].map(({ label, val }) => {
+                   const belowEMA = data.price?.current < val;
+                   return (
+                     <div key={label} style={{ textAlign: "center", background: C.surfaceMuted,
+                                               borderRadius: 8, padding: "10px 4px",
+                                               border: `1px solid ${C.borderSoft}` }}>
+                       <div style={{ color: C.textMuted, fontSize: 10, fontWeight: 600 }}>{label}</div>
+                       <div style={{ color: C.text, fontWeight: 700, fontSize: 14, marginTop: 2 }}>
+                         {val?.toLocaleString()}
+                       </div>
+                       <div style={{ color: belowEMA ? C.sell : C.buy, fontSize: 10, marginTop: 2, fontWeight: 600 }}>
+                         {belowEMA ? "BELOW ↓" : "ABOVE ↑"}
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+               <div style={{ marginTop: 12, textAlign: "center" }}>
+                 <span style={{ background: sigBg, color: sigColor,
+                               padding: "5px 14px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                               border: `1px solid ${sigColor}33` }}>
+                   GATE: {data.layer_1_trend?.trend_direction} · {data.layer_1_trend?.allowed_side} ONLY
+                 </span>
+               </div>
+             </Section>
+             <div className="hidden md:flex" style={{ flexDirection: "column", gap: 12, marginTop: 12 }}>
+               <MetricCard title={`RSI (${timeframe})`} value={bd.rsi?.toFixed(1)}
+                 label={bd.rsi < 40 ? "Bearish momentum" : bd.rsi > 60 ? "Bullish momentum" : "Neutral"}
+                 tone={bd.rsi < 40 ? "sell" : bd.rsi > 60 ? "buy" : "neutral"} />
+               <MetricCard title={DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol} value={data.price?.current?.toLocaleString()}
+                 label={score.direction} tone={isSell ? "sell" : isBuy ? "buy" : "neutral"} />
+             </div>
           </div>
 
           {/* Column 2 — Stochastic Triggers */}
