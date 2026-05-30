@@ -6,7 +6,7 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/functions/__server.func/index.mjs"
+      "destination": "/functions/index.func"
     }
   ]
 }
