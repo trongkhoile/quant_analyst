@@ -1,4 +1,4 @@
-import { cp, mkdir, writeFile, rename } from 'node:fs/promises'
+import { cp, mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 
 const funcDir = '.vercel/output/functions/__server.func'
@@ -15,51 +15,63 @@ if (existsSync('dist/client')) {
 }
 
 // Nitro v3 exports { fetch(req, context) } (Web API / Cloudflare style),
-// but Vercel Node.js runtime needs a standard (req, res) handler.
-// Create a wrapper that adapts between the two formats.
+// but Vercel Node.js runtime expects module.exports = (req, res) => {}.
+// We write a CJS wrapper so Vercel's launcher can require() it without
+// hitting ESM / import.meta issues.
 const wrapper = `
-import app from './index.mjs'
+'use strict';
+const { createRequire } = require('module');
+const { pathToFileURL } = require('url');
+const path = require('path');
 
-export default async function handler(req, res) {
-  const proto = req.headers['x-forwarded-proto']?.split(',')[0]?.trim() || 'https'
-  const host = req.headers.host || 'localhost'
-  const url = new URL(req.url || '/', proto + '://' + host)
+let _app;
+async function getApp() {
+  if (!_app) {
+    const mod = await import(pathToFileURL(path.join(__dirname, 'index.mjs')).href);
+    _app = mod.default;
+  }
+  return _app;
+}
 
-  const headers = new Headers()
+module.exports = async function handler(req, res) {
+  const app = await getApp();
+  const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  const host = req.headers.host || 'localhost';
+  const url = new URL(req.url || '/', proto + '://' + host);
+
+  const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) {
-    if (v != null) headers.set(k, Array.isArray(v) ? v.join(', ') : String(v))
+    if (v != null) headers.set(k, Array.isArray(v) ? v.join(', ') : String(v));
   }
 
-  const method = req.method || 'GET'
-  const hasBody = !['GET', 'HEAD'].includes(method)
-
-  let body = null
+  const method = req.method || 'GET';
+  const hasBody = !['GET', 'HEAD'].includes(method);
+  let body = null;
   if (hasBody) {
     body = await new Promise((resolve, reject) => {
-      const chunks = []
-      req.on('data', c => chunks.push(c))
-      req.on('end', () => resolve(Buffer.concat(chunks)))
-      req.on('error', reject)
-    })
+      const chunks = [];
+      req.on('data', c => chunks.push(c));
+      req.on('end', () => resolve(Buffer.concat(chunks)));
+      req.on('error', reject);
+    });
   }
 
-  const webReq = new Request(url.href, { method, headers, body })
-  const webRes = await app.fetch(webReq, { waitUntil: () => {} })
+  const webReq = new Request(url.href, { method, headers, body });
+  const webRes = await app.fetch(webReq, { waitUntil: () => {} });
 
-  res.statusCode = webRes.status
-  for (const [k, v] of webRes.headers) res.setHeader(k, v)
-
-  const buf = Buffer.from(await webRes.arrayBuffer())
-  res.end(buf)
-}
+  res.statusCode = webRes.status;
+  for (const [k, v] of webRes.headers) res.setHeader(k, v);
+  const buf = Buffer.from(await webRes.arrayBuffer());
+  res.end(buf);
+};
 `.trimStart()
 
-await writeFile(`${funcDir}/_handler.mjs`, wrapper)
+await writeFile(`${funcDir}/_handler.js`, wrapper)
 
-// Tell Vercel to use the wrapper as the entry point
+// Vercel .vc-config.json — use CJS handler file
 await writeFile(`${funcDir}/.vc-config.json`, JSON.stringify({
   runtime: 'nodejs22.x',
-  handler: '_handler.mjs',
+  handler: '_handler.js',
   launcherType: 'Nodejs'
 }, null, 2))
 
