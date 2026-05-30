@@ -61,6 +61,13 @@ export const Route = createFileRoute("/api/signal")({
             latestSignal = getLatestSignal(symbol, timeframe);
           } catch (err) {
             console.error("On-demand fetch failed", err);
+            return new Response(
+              JSON.stringify({ 
+                error: `Failed to fetch data from Binance for ${symbol} @ ${timeframe}. This might be due to Binance API blocking Vercel IPs.`,
+                detail: String(err)
+              }),
+              { status: 500, headers: { "content-type": "application/json" } },
+            );
           }
         }
 

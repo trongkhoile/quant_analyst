@@ -1,7 +1,8 @@
 import { calculateAIScore } from "./scoring_engine";
 import { setLatestSignal } from "./signal-store.server.js";
 
-const BINANCE_API_BASE = "https://api.binance.com";
+// Use data-api.binance.vision as it is less likely to block Vercel/AWS IPs
+const BINANCE_API_BASE = "https://data-api.binance.vision";
 
 export interface Kline {
   openTime: number;
@@ -184,6 +185,7 @@ export async function updateSignalFromBinance(symbol: string, timeframe: string)
     console.log(`Updated signal for ${symbol} [${timeframe}]:`, finalSignal);
   } catch (error) {
     console.error(`Failed to update signal from Binance for ${symbol} [${timeframe}]:`, error);
+    throw error;
   }
 }
 
