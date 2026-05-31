@@ -64,8 +64,8 @@ function CircularGauge({ score, maxScore = 90, color }: { score: number; maxScor
 }
 
 // ─── METRIC CARD ─────────────────────────────────────────────────────────────
-function MetricCard({ title, value, label, accent, tone }: {
-  title: string; value: any; label: string; accent?: string; tone?: "buy" | "sell" | "neutral" | "accent";
+function MetricCard({ title, value, label, accent, tone, large }: {
+  title: string; value: any; label: string; accent?: string; tone?: "buy" | "sell" | "neutral" | "accent"; large?: boolean;
 }) {
   const toneColor = tone === "buy" ? C.buy : tone === "sell" ? C.sell : tone === "accent" ? C.accent : accent || C.textMuted;
   const toneBg    = tone === "buy" ? "rgba(15,174,107,0.06)"
@@ -77,7 +77,7 @@ function MetricCard({ title, value, label, accent, tone }: {
       position: "relative", overflow: "hidden",
       background: `linear-gradient(135deg, #FFFFFF 0%, ${toneBg} 130%)`,
       border: `1px solid ${C.border}`, borderRadius: 12,
-      padding: "14px 16px", boxShadow: C.shadow,
+      padding: large ? "18px 20px" : "14px 16px", boxShadow: C.shadow,
       transition: "transform .2s ease, box-shadow .2s ease, border-color .2s ease",
     }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2,
@@ -86,14 +86,18 @@ function MetricCard({ title, value, label, accent, tone }: {
       <div style={{ position: "absolute", top: -30, right: -30, width: 80, height: 80,
                     background: `radial-gradient(circle, ${toneColor}22, transparent 70%)`,
                     pointerEvents: "none" }} />
-      <div className="qi-eyebrow" style={{ color: C.textMuted, fontSize: 9, marginBottom: 8, position: "relative" }}>
+      <div className="qi-eyebrow" style={{ color: C.textMuted, fontSize: large ? 10 : 9, marginBottom: large ? 10 : 8, position: "relative" }}>
         {title}
       </div>
-      <div className="qi-display" style={{ color: C.text, fontSize: 24, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.6, position: "relative" }}>
+      <div className="qi-display" style={{
+        color: C.text, fontSize: large ? 36 : 24, fontWeight: 700,
+        lineHeight: 1.1, letterSpacing: -0.6, position: "relative",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
         {value}
       </div>
       <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 5,
-                    color: toneColor, fontSize: 10.5, marginTop: 8, fontWeight: 700,
+                    color: toneColor, fontSize: large ? 11 : 10.5, marginTop: large ? 10 : 8, fontWeight: 700,
                     background: toneBg, padding: "2px 8px", borderRadius: 999,
                     border: `1px solid ${toneColor}30` }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: toneColor,
@@ -166,11 +170,11 @@ const DEMO_DATA: any = {
           webhook_event: "SIGNAL_UPDATE", schema_version: "2.0" }
 };
 
-const SYMBOLS = ["BTCUSDT", "ETHUSDT", "PAXGUSDT"];
+const SYMBOLS = ["BTCUSDT", "ETHUSDT", "XAUUSD"];
 const DISPLAY_MAP: Record<string, string> = {
   BTCUSDT: "BTC",
   ETHUSDT: "ETH",
-  PAXGUSDT: "XAUUSD",
+  XAUUSD: "XAUUSD",
 };
 const TIMEFRAMES = ["M5", "M15", "H1", "H4"];
 
@@ -195,7 +199,11 @@ function QiPrimeDashboard() {
   const pullSignal = useCallback(async () => {
     try {
       const res = await fetch(`/api/signal?symbol=${symbol}&timeframe=${timeframe}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { const b = await res.json(); if (b?.error) msg = b.error; } catch {}
+        throw new Error(msg);
+      }
       const json = await res.json();
       
       const adaptedScore = {
@@ -352,22 +360,22 @@ function QiPrimeDashboard() {
             {/* AI SCORE Section - Responsive Layout */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
                {/* MOBILE LAYOUT: Gauge | (RSI over Price) */}
-               <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "center", gap: 24, width: "100%" }}>
-                 <div style={{ background: sigBg, borderRadius: "50%", padding: 8 }}>
+               <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "center", gap: 12, width: "100%" }}>
+                 <div style={{ background: sigBg, borderRadius: "50%", padding: 6, flexShrink: 0 }}>
                    <CircularGauge score={score.ai_score} maxScore={90} color={sigColor} />
                  </div>
 
-                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                 <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 0 }}>
                    {/* Mobile RSI */}
-                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px", textAlign: "center", minWidth: 110, boxShadow: C.shadow }}>
-                     <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, marginBottom: 4 }}>RSI ({timeframe})</div>
-                     <div style={{ color: C.text, fontSize: 18, fontWeight: 800 }}>{bd.rsi?.toFixed(1)}</div>
+                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 8px", textAlign: "center", boxShadow: C.shadow, overflow: "hidden" }}>
+                     <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, marginBottom: 3 }}>RSI ({timeframe})</div>
+                     <div style={{ color: C.text, fontSize: 15, fontWeight: 800 }}>{bd.rsi?.toFixed(1)}</div>
                    </div>
 
                    {/* Mobile Price */}
-                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px", textAlign: "center", minWidth: 110, boxShadow: C.shadow }}>
-                     <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, marginBottom: 4 }}>{DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}</div>
-                     <div style={{ color: C.text, fontSize: 18, fontWeight: 800 }}>{data.price?.current?.toLocaleString()}</div>
+                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 8px", textAlign: "center", boxShadow: C.shadow, overflow: "hidden" }}>
+                     <div style={{ color: C.textFaint, fontSize: 9, fontWeight: 700, marginBottom: 3 }}>{DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol}</div>
+                     <div style={{ color: C.text, fontSize: 14, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{data.price?.current?.toLocaleString()}</div>
                    </div>
                  </div>
                </div>
@@ -438,9 +446,9 @@ function QiPrimeDashboard() {
                <div className="hidden md:flex" style={{ flexDirection: "column", gap: 12, marginTop: 12 }}>
                  <MetricCard title={`RSI (${timeframe})`} value={bd.rsi?.toFixed(1)}
                    label={bd.rsi < 40 ? "Bearish momentum" : bd.rsi > 60 ? "Bullish momentum" : "Neutral"}
-                   tone={bd.rsi < 40 ? "sell" : bd.rsi > 60 ? "buy" : "neutral"} />
+                   tone={bd.rsi < 40 ? "sell" : bd.rsi > 60 ? "buy" : "neutral"} large />
                  <MetricCard title={DISPLAY_MAP[data.instrument?.symbol ?? symbol] ?? data.instrument?.symbol ?? symbol} value={data.price?.current?.toLocaleString()}
-                   label={score.direction} tone={isSell ? "sell" : isBuy ? "buy" : "neutral"} />
+                   label={score.direction} tone={isSell ? "sell" : isBuy ? "buy" : "neutral"} large />
                </div>
           </div>
 

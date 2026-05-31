@@ -53,16 +53,22 @@ export const Route = createFileRoute("/api/signal")({
 
         let latestSignal = getLatestSignal(symbol, timeframe);
         
-        // On Vercel (Serverless), in-memory store is ephemeral. 
-        // If no signal is found, fetch it on-demand.
+        // On Vercel (Serverless), in-memory store is ephemeral.
+        // If no signal is found, fetch on-demand — except XAUUSD which comes from MT5 EA.
         if (!latestSignal) {
+          if (symbol === "XAUUSD") {
+            return new Response(
+              JSON.stringify({ error: "Waiting for MT5 data. Please ensure the XAUUSD EA is running and connected." }),
+              { status: 503, headers: { "content-type": "application/json" } },
+            );
+          }
           try {
             await updateSignalFromBinance(symbol, timeframe);
             latestSignal = getLatestSignal(symbol, timeframe);
           } catch (err) {
             console.error("On-demand fetch failed", err);
             return new Response(
-              JSON.stringify({ 
+              JSON.stringify({
                 error: `Failed to fetch data from Binance for ${symbol} @ ${timeframe}. This might be due to Binance API blocking Vercel IPs.`,
                 detail: String(err)
               }),

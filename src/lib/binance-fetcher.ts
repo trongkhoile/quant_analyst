@@ -109,87 +109,103 @@ export function calculateStochastic(
   return { k, d };
 }
 
+export interface KlineInput {
+  openTime: number;
+  open: string | number;
+  high: string | number;
+  low: string | number;
+  close: string | number;
+  volume: string | number;
+  closeTime?: number;
+}
+
+export async function updateSignalFromKlines(symbol: string, timeframe: string, klines: KlineInput[]) {
+  const closes = klines.map((k) => parseFloat(String(k.close)));
+  const highs = klines.map((k) => parseFloat(String(k.high)));
+  const lows = klines.map((k) => parseFloat(String(k.low)));
+  const volumes = klines.map((k) => parseFloat(String(k.volume)));
+
+  const calculateEMA = (data: number[], period: number): number => {
+    if (data.length < period) return data[data.length - 1] ?? 0;
+    const k = 2 / (period + 1);
+    let ema = data.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+    for (let i = period; i < data.length; i++) {
+      ema = data[i] * k + ema * (1 - k);
+    }
+    return ema;
+  };
+
+  const emaFast = calculateEMA(closes, 21);
+  const emaMid = calculateEMA(closes, 50);
+  const emaSlow = calculateEMA(closes, 200);
+
+  const latestClose = closes[closes.length - 1];
+  const trendDirection: "UP" | "DOWN" | "SIDEWAYS" = latestClose > emaSlow ? "UP" : latestClose < emaSlow ? "DOWN" : "SIDEWAYS";
+  const allowedSide: "BUY" | "SELL" = latestClose > emaFast ? "BUY" : "SELL";
+
+  const rsi = calculateRSI(closes);
+  const { k: stochK, d: stochD } = calculateStochastic(
+    klines.map((k) => ({
+      high: parseFloat(String(k.high)),
+      low: parseFloat(String(k.low)),
+      close: parseFloat(String(k.close)),
+    }))
+  );
+
+  const flow = (closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2];
+  const delta = volumes[volumes.length - 1] - volumes[volumes.length - 2];
+
+  const payload = {
+    symbol,
+    timestamp: Date.now(),
+    execution_timeframe: timeframe,
+    layer_1_trend: {
+      trend_direction: trendDirection,
+      ema_fast_value: emaFast,
+      ema_mid_value: emaMid,
+      ema_slow_value: emaSlow,
+      allowed_side: allowedSide,
+    },
+    layer_2: { rsi },
+    layer_3: { stoch_k: stochK, stoch_d: stochD },
+    layer_4: { flow, delta },
+  };
+
+  const result = calculateAIScore(payload);
+  const finalSignal = {
+    ...result,
+    price: {
+      current: latestClose,
+      bid: latestClose * 0.9999,
+      ask: latestClose * 1.0001,
+      spread: latestClose * 0.0002,
+    },
+    layer_1_trend: payload.layer_1_trend,
+    execution_timeframe: timeframe,
+  };
+
+  setLatestSignal(finalSignal);
+  console.log(`Updated signal for ${symbol} [${timeframe}]:`, finalSignal);
+}
+
 export async function updateSignalFromBinance(symbol: string, timeframe: string) {
   try {
-    // Map our UI timeframe (M5, M15, H1, H4) to Binance interval strings
     const intervalMap: Record<string, string> = {
       "M5": "5m",
       "M15": "15m",
       "H1": "1h",
       "H4": "4h",
     };
-    const interval = intervalMap[timeframe] || "15m"; // fallback to 15m
+    const interval = intervalMap[timeframe] || "15m";
     const klines = await fetchKlines(symbol, interval, 200);
-    const closes = klines.map((k) => parseFloat(k.close));
-    const highs = klines.map((k) => parseFloat(k.high));
-    const lows = klines.map((k) => parseFloat(k.low));
-    const volumes = klines.map((k) => parseFloat(k.volume));
-
-    // ----- Calculate EMA values (fast=21, mid=50, slow=200) -----
-    const calculateEMA = (data: number[], period: number): number => {
-      if (data.length < period) return data[data.length - 1] ?? 0;
-      const k = 2 / (period + 1);
-      let ema = data.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
-      for (let i = period; i < data.length; i++) {
-        ema = data[i] * k + ema * (1 - k);
-      }
-      return ema;
-    };
-    const emaFast = calculateEMA(closes, 21);
-    const emaMid = calculateEMA(closes, 50);
-    const emaSlow = calculateEMA(closes, 200);
-    
-    const latestClose = closes[closes.length - 1];
-    const trendDirection: "UP" | "DOWN" | "SIDEWAYS" = latestClose > emaSlow ? "UP" : latestClose < emaSlow ? "DOWN" : "SIDEWAYS";
-    const allowedSide: "BUY" | "SELL" = latestClose > emaFast ? "BUY" : "SELL";
-
-    const rsi = calculateRSI(closes);
-    const { k: stochK, d: stochD } = calculateStochastic(
-      klines.map((k) => ({ high: parseFloat(k.high), low: parseFloat(k.low), close: parseFloat(k.close) }))
-    );
-
-    const flow = (closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2];
-    const delta = volumes[volumes.length - 1] - volumes[volumes.length - 2];
-
-    const payload = {
-      symbol: symbol,
-      timestamp: Date.now(),
-      execution_timeframe: timeframe,
-      layer_1_trend: {
-        trend_direction: trendDirection,
-        ema_fast_value: emaFast,
-        ema_mid_value: emaMid,
-        ema_slow_value: emaSlow,
-        allowed_side: allowedSide,
-      },
-      layer_2: { rsi },
-      layer_3: { stoch_k: stochK, stoch_d: stochD },
-      layer_4: { flow, delta },
-    };
-
-    const result = calculateAIScore(payload);
-    // We need to ensure the result includes the timeframe, trend data, and current price
-    const finalSignal = {
-      ...result,
-      price: {
-        current: latestClose,
-        bid: latestClose * 0.9999, // Approximation for demo
-        ask: latestClose * 1.0001, // Approximation for demo
-        spread: latestClose * 0.0002,
-      },
-      layer_1_trend: payload.layer_1_trend,
-      execution_timeframe: timeframe
-    };
-    
-    setLatestSignal(finalSignal);
-    console.log(`Updated signal for ${symbol} [${timeframe}]:`, finalSignal);
+    await updateSignalFromKlines(symbol, timeframe, klines);
   } catch (error) {
     console.error(`Failed to update signal from Binance for ${symbol} [${timeframe}]:`, error);
     throw error;
   }
 }
 
-const TRACKED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "PAXGUSDT"];
+const TRACKED_SYMBOLS = ["BTCUSDT", "ETHUSDT"];
 const INTERVAL_MS = 10000; // Update every minute
 
 export function startBinanceFetcher() {

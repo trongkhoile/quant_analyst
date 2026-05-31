@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSignalRouteImport } from './routes/api/signal'
+import { Route as ApiMt5KlinesRouteImport } from './routes/api/mt5-klines'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +23,39 @@ const ApiSignalRoute = ApiSignalRouteImport.update({
   path: '/api/signal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMt5KlinesRoute = ApiMt5KlinesRouteImport.update({
+  id: '/api/mt5-klines',
+  path: '/api/mt5-klines',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/mt5-klines': typeof ApiMt5KlinesRoute
   '/api/signal': typeof ApiSignalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/mt5-klines': typeof ApiMt5KlinesRoute
   '/api/signal': typeof ApiSignalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/mt5-klines': typeof ApiMt5KlinesRoute
   '/api/signal': typeof ApiSignalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/signal'
+  fullPaths: '/' | '/api/mt5-klines' | '/api/signal'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/signal'
-  id: '__root__' | '/' | '/api/signal'
+  to: '/' | '/api/mt5-klines' | '/api/signal'
+  id: '__root__' | '/' | '/api/mt5-klines' | '/api/signal'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiMt5KlinesRoute: typeof ApiMt5KlinesRoute
   ApiSignalRoute: typeof ApiSignalRoute
 }
 
@@ -65,11 +75,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSignalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mt5-klines': {
+      id: '/api/mt5-klines'
+      path: '/api/mt5-klines'
+      fullPath: '/api/mt5-klines'
+      preLoaderRoute: typeof ApiMt5KlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiMt5KlinesRoute: ApiMt5KlinesRoute,
   ApiSignalRoute: ApiSignalRoute,
 }
 export const routeTree = rootRouteImport
