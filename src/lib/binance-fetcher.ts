@@ -45,33 +45,44 @@ export async function fetchKlines(
 }
 
 export function calculateRSI(closes: number[], period: number = 14): number {
-  if (closes.length < period + 1) {
+  const validCloses = closes.filter((value) => Number.isFinite(value));
+
+  if (validCloses.length < period + 1) {
     return 50; // Not enough data
   }
 
-  let gains = 0;
-  let losses = 0;
+  let avgGain = 0;
+  let avgLoss = 0;
 
-  for (let i = closes.length - period; i < closes.length; i++) {
-    const change = closes[i] - closes[i - 1];
+  // Seed RSI with the SMA of the first `period` price changes.
+  for (let i = 1; i <= period; i++) {
+    const change = validCloses[i] - validCloses[i - 1];
     if (change > 0) {
-      gains += change;
+      avgGain += change;
     } else {
-      losses -= change;
+      avgLoss -= change;
     }
   }
 
-  const avgGain = gains / period;
-  const avgLoss = losses / period;
+  avgGain /= period;
+  avgLoss /= period;
+
+  // Wilder smoothing, matching the standard RSI used by MT5/TradingView.
+  for (let i = period + 1; i < validCloses.length; i++) {
+    const change = validCloses[i] - validCloses[i - 1];
+    const gain = Math.max(change, 0);
+    const loss = Math.max(-change, 0);
+
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+  }
 
   if (avgLoss === 0) {
-    return 100;
+    return avgGain === 0 ? 50 : 100;
   }
 
   const rs = avgGain / avgLoss;
-  const rsi = 100 - 100 / (1 + rs);
-
-  return rsi;
+  return 100 - 100 / (1 + rs);
 }
 
 export function calculateStochastic(
@@ -120,16 +131,20 @@ export interface KlineInput {
 }
 
 export async function updateSignalFromKlines(symbol: string, timeframe: string, klines: KlineInput[]) {
-  const closes = klines.map((k) => parseFloat(String(k.close)));
-  const highs = klines.map((k) => parseFloat(String(k.high)));
-  const lows = klines.map((k) => parseFloat(String(k.low)));
-  const volumes = klines.map((k) => parseFloat(String(k.volume)));
+  const orderedKlines = [...klines].sort((a, b) => Number(a.openTime) - Number(b.openTime));
+
+  const closes = orderedKlines.map((k) => parseFloat(String(k.close)));
+  const highs = orderedKlines.map((k) => parseFloat(String(k.high)));
+  const lows = orderedKlines.map((k) => parseFloat(String(k.low)));
+  const volumes = orderedKlines.map((k) => parseFloat(String(k.volume)));
 
   const calculateEMA = (data: number[], period: number): number => {
-    if (data.length < period) return data[data.length - 1] ?? 0;
+    if (data.length === 0) return 0;
     const k = 2 / (period + 1);
-    let ema = data.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
-    for (let i = period; i < data.length; i++) {
+    // If fewer bars than period, seed EMA with SMA of available data
+    const seedLen = Math.min(period, data.length);
+    let ema = data.slice(0, seedLen).reduce((sum, v) => sum + v, 0) / seedLen;
+    for (let i = seedLen; i < data.length; i++) {
       ema = data[i] * k + ema * (1 - k);
     }
     return ema;
@@ -145,7 +160,7 @@ export async function updateSignalFromKlines(symbol: string, timeframe: string, 
 
   const rsi = calculateRSI(closes);
   const { k: stochK, d: stochD } = calculateStochastic(
-    klines.map((k) => ({
+    orderedKlines.map((k) => ({
       high: parseFloat(String(k.high)),
       low: parseFloat(String(k.low)),
       close: parseFloat(String(k.close)),

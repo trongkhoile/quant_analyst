@@ -18,10 +18,13 @@ export const Route = createFileRoute("/api/mt5-klines")({
         }
 
         let body: unknown;
+        let rawText: string | undefined;
         try {
-          body = await request.json();
-        } catch {
-          return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+          rawText = await request.text();
+          body = JSON.parse(rawText);
+        } catch (e) {
+          console.error("mt5-klines: invalid JSON, first 500 chars:", rawText?.slice(0, 500));
+          return new Response(JSON.stringify({ error: "Invalid JSON", detail: String(e), preview: rawText?.slice(0, 200) }), {
             status: 400,
             headers: { "content-type": "application/json" },
           });
@@ -31,7 +34,10 @@ export const Route = createFileRoute("/api/mt5-klines")({
 
         if (!symbol || !timeframe || !Array.isArray(klines) || klines.length === 0) {
           return new Response(
-            JSON.stringify({ error: "Required: symbol (string), timeframe (string), klines (array)" }),
+            JSON.stringify({
+              error: "Required: symbol (string), timeframe (string), klines (non-empty array)",
+              received: { symbol, timeframe, klinesType: typeof klines, klinesLength: Array.isArray(klines) ? klines.length : "not-array" },
+            }),
             { status: 400, headers: { "content-type": "application/json" } }
           );
         }
@@ -39,7 +45,7 @@ export const Route = createFileRoute("/api/mt5-klines")({
         const validTimeframes = ["M5", "M15", "H1", "H4"];
         if (!validTimeframes.includes(timeframe)) {
           return new Response(
-            JSON.stringify({ error: `timeframe must be one of: ${validTimeframes.join(", ")}` }),
+            JSON.stringify({ error: `timeframe must be one of: ${validTimeframes.join(", ")}`, received: timeframe }),
             { status: 400, headers: { "content-type": "application/json" } }
           );
         }

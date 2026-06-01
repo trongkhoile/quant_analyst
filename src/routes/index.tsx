@@ -1,6 +1,38 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { calculateAIScore } from "@/lib/scoring_engine.js";
+
+// ─── TOAST COMPONENT ─────────────────────────────────────────────────────────
+function Toast({ message, show }: { message: string; show: boolean }) {
+  if (!show) return null;
+
+  return (
+    <div style={{
+      position: "fixed",
+      top: 20,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "rgba(0,0,0,0.8)",
+      color: "#fff",
+      padding: "10px 20px",
+      borderRadius: 8,
+      zIndex: 1000,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+      fontSize: 14,
+      fontWeight: 600,
+      animation: "fadeInDown 0.3s ease-out",
+    }}>
+      {message}
+      <style>{`
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translate(-50%, -20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -186,6 +218,17 @@ function QiPrimeDashboard() {
   const [error, setError]         = useState<string | null>(null);
   const [symbol, setSymbol]       = useState<string>(DEMO_DATA.instrument.symbol);
   const [timeframe, setTimeframe] = useState<string>(DEMO_DATA.instrument.execution_timeframe);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const toastTimerRef = useRef<number | null>(null);
+  const closeToast = useCallback(() => setShowToast(false), []);
+
+  useEffect(() => {
+    setLoading(true);
+    setConnected(false);
+    setError(null);
+  }, [symbol, timeframe]);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -220,12 +263,13 @@ function QiPrimeDashboard() {
 
       setScore(adaptedScore);
       setData(json);
-      
       setConnected(true);
       setError(null);
+      setLoading(false);
     } catch (e: any) {
       setConnected(false);
       setError(e.message);
+      setLoading(false);
     }
   }, [symbol, timeframe]);
 
@@ -235,7 +279,55 @@ function QiPrimeDashboard() {
     return () => clearInterval(t);
   }, [pullSignal]);
 
-  const copySignal = () => navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+  // TP/SL is now locked server-side — just read from score
+  const tpsl = score?.lockedTpsl ?? { sl: null, tp1: null, tp2: null };
+
+  const copySignal = () => {
+    const signalStatus = score?.label ?? score?.direction ?? "STANDBY";
+
+    const triggerToast = (msg: string) => {
+      // Clear existing timer if any
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+      
+      setToastMessage(msg);
+      setShowToast(true);
+      
+      // Set new timer to hide toast after 3 seconds
+      toastTimerRef.current = window.setTimeout(() => {
+        setShowToast(false);
+        toastTimerRef.current = null;
+      }, 3000);
+    };
+
+    if (signalStatus === "STANDBY" || signalStatus === "WAIT") {
+      triggerToast("Hiện tại hệ thống đang STANDBY, chưa có tín hiệu BUY NOW hoặc SELL NOW để copy.");
+      return;
+    }
+
+    const asset = data.instrument?.symbol ?? symbol ?? "N/A";
+    const tf = data.instrument?.execution_timeframe ?? timeframe ?? "N/A";
+    const entry = data.price?.current;
+    const fmt = (value: number | null | undefined) =>
+      typeof value === "number" ? value.toFixed(2) : "N/A";
+
+    const message = [
+      `🔴 QI PRIME SIGNAL: ${signalStatus}`,
+      `🔹 Asset: ${asset}`,
+      `🔹 Timeframe: ${tf}`,
+      `-------------------------`,
+      `🔹 ENTRY: ${fmt(entry)}`,
+      `❌ STOP LOSS: ${fmt(tpsl.sl)}`,
+      `✅ TAKE PROFIT 1: ${fmt(tpsl.tp1)}`,
+      `✅ TAKE PROFIT 2: ${fmt(tpsl.tp2)}`,
+      `-------------------------`,
+      `🔥 AI Confidence Score: ${score.ai_score}%`
+    ].join("\n");
+
+    navigator.clipboard.writeText(message);
+    triggerToast("Signal copied to clipboard!");
+  };
 
   const lastUpdateStr = useMemo(() => {
     const ts = data.meta?.last_update ? new Date(data.meta.last_update).getTime() : data.timestamp;
@@ -249,9 +341,9 @@ function QiPrimeDashboard() {
         <>
           <div style={{ color: C.sell, fontWeight: 700, fontSize: 18 }}>Error loading signal</div>
           <div style={{ color: C.textMuted, fontSize: 14, textAlign: "center", maxWidth: 400 }}>{error}</div>
-          <button onClick={pullSignal} style={{ 
-            marginTop: 8, padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.border}`, 
-            background: C.surface, color: C.text, fontWeight: 600, cursor: "pointer", boxShadow: C.shadow 
+          <button onClick={pullSignal} style={{
+            marginTop: 8, padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.border}`,
+            background: C.surface, color: C.text, fontWeight: 600, cursor: "pointer", boxShadow: C.shadow
           }}>
             Retry
           </button>
@@ -312,11 +404,17 @@ function QiPrimeDashboard() {
           <div className="qi-live-pill" style={{ display: "flex", gap: 8, alignItems: "center",
                         background: C.surface, border: `1px solid ${C.border}`,
                         borderRadius: 999, padding: "6px 12px", boxShadow: C.shadow }}>
-            <div className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%",
-                          background: connected ? C.buy : C.amber,
-                          boxShadow: `0 0 8px ${connected ? C.buy : C.amber}` }} />
+            {loading ? (
+              <div style={{ width: 8, height: 8, border: `2px solid ${C.border}`,
+                borderTopColor: C.accent, borderRadius: "50%",
+                animation: "spin 0.8s linear infinite" }} />
+            ) : (
+              <div className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%",
+                background: connected ? C.buy : C.amber,
+                boxShadow: `0 0 8px ${connected ? C.buy : C.amber}` }} />
+            )}
             <span className="qi-eyebrow" style={{ color: C.textMuted, fontSize: 10 }}>
-              {connected ? "LIVE" : "DEMO"}
+              {loading ? "LOADING" : connected ? "LIVE" : "DEMO"}
             </span>
             {error && <span style={{ color: C.amber, fontSize: 10 }}>· {error}</span>}
           </div>
@@ -354,6 +452,20 @@ function QiPrimeDashboard() {
                          cursor: "pointer", letterSpacing: 0.4 }}>
                 Copy Signal
               </button>
+            </div>
+            <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, background: "rgba(0,0,0,0.02)", padding: 12, borderRadius: 8, border: `1px solid ${C.borderSoft}` }}>
+              <div>
+                <div style={{ color: C.textMuted, fontSize: 10, fontWeight: 800, marginBottom: 4 }}>STOP LOSS</div>
+                <div style={{ color: C.sell, fontSize: 18, fontWeight: 800 }}>{tpsl.sl?.toFixed(2) ?? "N/A"}</div>
+              </div>
+              <div>
+                <div style={{ color: C.textMuted, fontSize: 10, fontWeight: 800, marginBottom: 4 }}>TP 1 (1:1)</div>
+                <div style={{ color: C.buy, fontSize: 18, fontWeight: 800 }}>{tpsl.tp1?.toFixed(2) ?? "N/A"}</div>
+              </div>
+              <div>
+                <div style={{ color: C.textMuted, fontSize: 10, fontWeight: 800, marginBottom: 4 }}>TP 2 (1:2)</div>
+                <div style={{ color: C.buy, fontSize: 18, fontWeight: 800 }}>{tpsl.tp2?.toFixed(2) ?? "N/A"}</div>
+              </div>
             </div>
           </div>
 
@@ -526,6 +638,7 @@ function QiPrimeDashboard() {
           QiPrime Smart Flow Dashboard v2.0 · MT5 EA Bridge · Schema v2
         </div>
       </div>
+      <Toast message={toastMessage} show={showToast} />
     </div>
   );
 }
